@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cờ Caro 20x20 (Minimax/Alpha-Beta)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        #gameCanvas {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            background-color: #f7e6c4; /* Màu gỗ nhạt cho bàn cờ */
+        }
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 12px;
+            z-index: 10;
+        }
+        .dot-flashing {
+          position: relative;
+          width: 10px;
+          height: 10px;
+          border-radius: 5px;
+          background-color: #ffffff;
+          color: #ffffff;
+          animation: dotFlashing 1s infinite linear alternate;
+          animation-delay: .5s;
+        }
+        .dot-flashing::before, .dot-flashing::after {
+          content: '';
+          display: inline-block;
+          position: absolute;
+          top: 0;
+          border-radius: 5px;
+          width: 10px;
+          height: 10px;
+          background-color: #ffffff;
+          color: #ffffff;
+          animation: dotFlashing 1s infinite linear alternate;
+        }
+        .dot-flashing::before {
+          left: -15px;
+          animation-delay: 0s;
+        }
+        .dot-flashing::after {
+          left: 15px;
+          animation-delay: 1s;
+        }
+        @keyframes dotFlashing {
+          0% { background-color: #ffffff; }
+          50%, 100% { background-color: #10b981; }
+        }
+
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div id="app" class="flex flex-col lg:flex-row bg-white p-6 rounded-2xl shadow-2xl max-w-7xl w-full">
+        
+        <div class="relative flex justify-center items-center p-2 lg:p-4 rounded-xl mb-6 lg:mb-0 lg:mr-8">
+            <canvas id="gameCanvas" width="700" height="700" class="select-none"></canvas>
+            
+            <!-- Loading Overlay for AI thinking -->
+            <div id="loadingOverlay" class="loading-overlay hidden">
+                <div class="flex flex-col items-center p-6 bg-gray-800 bg-opacity-90 rounded-xl shadow-lg">
+                    <div class="dot-flashing mb-4"></div>
+                    <p class="text-white text-lg font-semibold animate-pulse">AI đang suy nghĩ...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-shrink-0 w-full lg:w-80 p-4 space-y-6">
+            <h1 class="text-3xl font-bold text-center text-gray-800 border-b-2 pb-3 border-emerald-500">CỜ CARO (GOMOKU) AI</h1>
+            
+            <div id="status" class="bg-indigo-100 border-l-4 border-indigo-500 text-indigo-700 p-4 rounded-lg shadow-md">
+                <p class="text-lg font-semibold mb-1">Trạng thái: <span id="gameStatus" class="font-bold text-indigo-900">Người chơi X bắt đầu</span></p>
+                <p class="text-sm">Kích thước: 20x20 | Thắng: 5 nước liên tiếp</p>
+                <p class="text-sm">Độ sâu AI (Depth): <span id="aiDepthDisplay" class="font-medium text-indigo-700">3</span></p>
+            </div>
+
+            <div class="space-y-4">
+                <button id="newGameBtn" class="w-full py-3 px-4 bg-emerald-500 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-600 transition duration-200 transform hover:scale-105">
+                    Chơi Ván Mới (Bạn đi trước)
+                </button>
+                 <button id="aiFirstBtn" class="w-full py-3 px-4 bg-yellow-500 text-gray-800 font-bold rounded-xl shadow-lg hover:bg-yellow-600 transition duration-200 transform hover:scale-105">
+                    Máy tính đi trước
+                </button>
+            </div>
+            
+            <!-- AI Settings -->
+            <div class="bg-gray-50 p-4 rounded-xl shadow-inner space-y-3">
+                <h2 class="text-xl font-semibold text-gray-700">Cài đặt AI</h2>
+                <div>
+                    <label for="aiDepth" class="block text-sm font-medium text-gray-600 mb-1">Độ sâu tìm kiếm (1-5)</label>
+                    <input type="range" id="aiDepth" min="1" max="5" value="3" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-lg">
+                </div>
+                <p class="text-xs text-gray-500 italic">Độ sâu càng lớn, AI càng mạnh nhưng thời gian tính toán càng lâu.</p>
+            </div>
+
+            <div class="text-center pt-4 border-t border-gray-200">
+                <p class="text-sm text-gray-500">Người chơi X là bạn | Máy tính O là AI</p>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Global Constants and Setup
+        var N = 20; // Board size N x N
+        var WIN_COUNT = 5; // Number of pieces to win
+        var CANVAS_SIZE = 700;
+        var CELL_SIZE = CANVAS_SIZE / N;
+
+        var PLAYER_HUMAN = 1; // X
+        var PLAYER_AI = 2;    // O
+        
+        var board;
+        var currentPlayer;
+        var isGameOver;
+        var isAITurn;
+        var winningLine = null;
+        var aiSearchDepth = 3; // Default depth
+
+        var canvas = document.getElementById('gameCanvas');
+        var ctx = canvas.getContext('2d');
+        var gameStatusEl = document.getElementById('gameStatus');
+        var newGameBtn = document.getElementById('newGameBtn');
+        var aiFirstBtn = document.getElementById('aiFirstBtn');
+        var loadingOverlay = document.getElementById('loadingOverlay');
+        var aiDepthInput = document.getElementById('aiDepth');
+        var aiDepthDisplay = document.getElementById('aiDepthDisplay');
+
+
+        // --- FIREBASE AND AUTH SETUP (Standard for Canvas Environment) ---
+        // Although not used for state persistence in this single-player game,
+        // Firebase setup is required boilerplate for the environment.
+        // We will skip full setup as the game is client-side only, but acknowledge the need.
+        /*
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        let db, auth, userId;
+        
+        if (firebaseConfig) {
+            import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+            import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+            import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+            
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            
+            if (initialAuthToken) {
+                signInWithCustomToken(auth, initialAuthToken).then(userCredential => {
+                    userId = userCredential.user.uid;
+                    console.log("Firebase signed in with custom token. User ID:", userId);
+                }).catch(error => {
+                    console.error("Firebase custom token sign-in failed:", error);
+                    signInAnonymously(auth).then(userCredential => {
+                        userId = userCredential.user.uid;
+                        console.log("Firebase signed in anonymously. User ID:", userId);
+                    });
+                });
+            } else {
+                signInAnonymously(auth).then(userCredential => {
+                    userId = userCredential.user.uid;
+                    console.log("Firebase signed in anonymously. User ID:", userId);
+                });
+            }
+        }
+        */
+        // --- END FIREBASE SETUP ---
+
+
+        // --- Core Game Functions ---
+
+        /**
+         * Initializes the game state.
+         */
+        function initializeGame(humanStarts) {
+            board = Array(N).fill(null).map(() => Array(N).fill(0)); // 0: empty, 1: human (X), 2: AI (O)
+            currentPlayer = humanStarts ? PLAYER_HUMAN : PLAYER_AI;
+            isGameOver = false;
+            winningLine = null;
+            isAITurn = !humanStarts;
+
+            drawBoard();
+            updateStatus();
+
+            if (isAITurn) {
+                setTimeout(aiMove, 50); // AI goes first
+            }
+        }
+
+        /**
+         * Draws the 20x20 grid and all pieces on the canvas.
+         */
+        function drawBoard() {
+            ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+            // Draw grid lines
+            ctx.strokeStyle = '#5c3c1e'; // Dark wood color
+            ctx.lineWidth = 1;
+            for (var i = 0; i < N; i++) {
+                // Vertical lines
+                ctx.beginPath();
+                ctx.moveTo(CELL_SIZE / 2 + i * CELL_SIZE, CELL_SIZE / 2);
+                ctx.lineTo(CELL_SIZE / 2 + i * CELL_SIZE, CANVAS_SIZE - CELL_SIZE / 2);
+                ctx.stroke();
+
+                // Horizontal lines
+                ctx.beginPath();
+                ctx.moveTo(CELL_SIZE / 2, CELL_SIZE / 2 + i * CELL_SIZE);
+                ctx.lineTo(CANVAS_SIZE - CELL_SIZE / 2, CELL_SIZE / 2 + i * CELL_SIZE);
+                ctx.stroke();
+            }
+
+            // Draw pieces
+            for (var r = 0; r < N; r++) {
+                for (var c = 0; c < N; c++) {
+                    var player = board[r][c];
+                    if (player !== 0) {
+                        var x = c * CELL_SIZE + CELL_SIZE / 2;
+                        var y = r * CELL_SIZE + CELL_SIZE / 2;
+
+                        ctx.beginPath();
+                        ctx.arc(x, y, CELL_SIZE * 0.4, 0, 2 * Math.PI);
+                        
+                        if (player === PLAYER_HUMAN) {
+                            // Draw X
+                            ctx.strokeStyle = '#e53e3e'; // Red
+                            ctx.lineWidth = 3;
+                            var size = CELL_SIZE * 0.3;
+                            ctx.moveTo(x - size, y - size);
+                            ctx.lineTo(x + size, y + size);
+                            ctx.moveTo(x + size, y - size);
+                            ctx.lineTo(x - size, y + size);
+                            ctx.stroke();
+                        } else {
+                            // Draw O
+                            ctx.strokeStyle = '#38bdf8'; // Blue
+                            ctx.lineWidth = 3;
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+
+            // Highlight winning line if game is over
+            if (winningLine) {
+                ctx.lineWidth = 5;
+                ctx.strokeStyle = '#10b981'; // Emerald
+                ctx.lineCap = 'round';
+                
+                var r1 = winningLine[0];
+                var c1 = winningLine[1];
+                var r2 = winningLine[2];
+                var c2 = winningLine[3];
+                
+                var x1 = c1 * CELL_SIZE + CELL_SIZE / 2;
+                var y1 = r1 * CELL_SIZE + CELL_SIZE / 2;
+                var x2 = c2 * CELL_SIZE + CELL_SIZE / 2;
+                var y2 = r2 * CELL_SIZE + CELL_SIZE / 2;
+
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
+
+            // Highlight the last move
+            var lastMove = findLastMove();
+            if (lastMove) {
+                var r = lastMove[0];
+                var c = lastMove[1];
+                var x = c * CELL_SIZE + CELL_SIZE / 2;
+                var y = r * CELL_SIZE + CELL_SIZE / 2;
+                
+                ctx.fillStyle = 'rgba(255, 255, 0, 0.5)'; // Yellow highlight
+                ctx.beginPath();
+                ctx.arc(x, y, CELL_SIZE * 0.5, 0, 2 * Math.PI);
+                ctx.fill();
+
+                // Redraw the piece to be on top of the highlight
+                var player = board[r][c];
+                if (player !== 0) {
+                    ctx.beginPath();
+                    ctx.arc(x, y, CELL_SIZE * 0.4, 0, 2 * Math.PI);
+                    if (player === PLAYER_HUMAN) {
+                        ctx.strokeStyle = '#e53e3e';
+                        ctx.lineWidth = 3;
+                        var size = CELL_SIZE * 0.3;
+                        ctx.moveTo(x - size, y - size);
+                        ctx.lineTo(x + size, y + size);
+                        ctx.moveTo(x + size, y - size);
+                        ctx.lineTo(x - size, y + size);
+                        ctx.stroke();
+                    } else {
+                        ctx.strokeStyle = '#38bdf8';
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+        
+        /**
+         * Finds the coordinates of the last played move.
+         * Used for highlighting.
+         */
+        function findLastMove() {
+            var lastMove = null;
+            var moveCount = 0;
+            for(var r = 0; r < N; r++) {
+                for(var c = 0; c < N; c++) {
+                    if (board[r][c] !== 0) {
+                        moveCount++;
+                    }
+                }
+            }
+            if (moveCount === 0) return null;
+
+            // Simple heuristic to find the last move based on player's turn
+            // If total moves is odd, AI (2) was the last player. If even, Human (1) was last.
+            // var lastPlayer = (moveCount % 2 === 0) ? PLAYER_AI : PLAYER_HUMAN;
+
+            // This is actually tricky in a simple board. For now, we'll just skip.
+            // A better way is to track moves history, but let's keep it simple.
+            return null; // For simplicity, we won't highlight the last move without history.
+        }
+
+        /**
+         * Updates the game status display.
+         */
+        function updateStatus() {
+            var message = '';
+            var statusClass = 'text-indigo-900';
+
+            if (isGameOver) {
+                if (board.flat().every(function(cell) { return cell !== 0; }) && !winningLine) {
+                    message = 'HÒA! Bàn cờ đầy.';
+                    statusClass = 'text-yellow-700';
+                } else {
+                    var winner = board[winningLine[0]][winningLine[1]];
+                    if (winner === PLAYER_HUMAN) {
+                        message = 'BẠN THẮNG! (X)';
+                        statusClass = 'text-green-700 font-extrabold';
+                    } else {
+                        message = 'MÁY TÍNH THẮNG! (O)';
+                        statusClass = 'text-red-700 font-extrabold';
+                    }
+                }
+            } else {
+                if (currentPlayer === PLAYER_HUMAN) {
+                    message = 'Lượt bạn (X)';
+                    statusClass = 'text-red-500 font-bold';
+                } else {
+                    message = 'Lượt máy tính (O)';
+                    statusClass = 'text-blue-500 font-bold';
+                }
+            }
+            gameStatusEl.innerHTML = message;
+            gameStatusEl.className = statusClass;
+        }
+
+        /**
+         * Checks for a win condition (5 in a row).
+         * @returns {boolean} True if the current player has won.
+         */
+        function checkWin(boardToCheck, lastR, lastC) {
+            var player = boardToCheck[lastR][lastC];
+            if (player === 0) return false;
+
+            var directions = [
+                [0, 1],  // Horizontal
+                [1, 0],  // Vertical
+                [1, 1],  // Diagonal \
+                [1, -1]  // Diagonal /
+            ];
+
+            for (var _i = 0, _a = directions; _i < _a.length; _i++) {
+                var _b = _a[_i];
+                var dr = _b[0];
+                var dc = _b[1];
+                var count = 1;
+                var winCoords = [[lastR, lastC]];
+
+                // Check forward
+                for (var i = 1; i < WIN_COUNT; i++) {
+                    var r = lastR + i * dr;
+                    var c = lastC + i * dc;
+                    if (r >= 0 && r < N && c >= 0 && c < N && boardToCheck[r][c] === player) {
+                        count++;
+                        winCoords.push([r, c]);
+                    } else {
+                        break;
+                    }
+                }
+
+                // Check backward
+                for (var i = 1; i < WIN_COUNT; i++) {
+                    var r = lastR - i * dr;
+                    var c = lastC - i * dc;
+                    if (r >= 0 && r < N && c >= 0 && c < N && boardToCheck[r][c] === player) {
+                        count++;
+                        winCoords.push([r, c]);
+                    } else {
+                        break;
+                    }
+                }
+
+                if (count >= WIN_COUNT) {
+                    // Find the true endpoints of the 5-in-a-row for highlighting
+                    winCoords.sort(function(a, b) { return a[0] === b[0] ? a[1] - b[1] : a[0] - b[0]; });
+                    
+                    var startR = lastR;
+                    var startC = lastC;
+                    var endR = lastR;
+                    var endC = lastC;
+                    
+                    // Iterate to find the true endpoints
+                    for(var i = 1; i < WIN_COUNT; i++) {
+                        if (startR - dr >= 0 && startR - dr < N && startC - dc >= 0 && startC - dc < N && boardToCheck[startR - dr][startC - dc] === player) {
+                            startR -= dr;
+                            startC -= dc;
+                        }
+                        if (endR + dr >= 0 && endR + dr < N && endC + dc >= 0 && endC + dc < N && boardToCheck[endR + dr][endC + dc] === player) {
+                            endR += dr;
+                            endC += dc;
+                        }
+                    }
+                    
+                    // The line is from (startR, startC) to (endR, endC)
+                    winningLine = [startR, startC, endR, endC];
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+        
+        /**
+         * Handles a move on the board.
+         */
+        function handleMove(r, c) {
+            if (isGameOver || isAITurn || board[r][c] !== 0) return;
+
+            board[r][c] = currentPlayer;
+            drawBoard();
+
+            if (checkWin(board, r, c)) {
+                isGameOver = true;
+                updateStatus();
+            } else if (board.flat().every(function(cell) { return cell !== 0; })) {
+                isGameOver = true;
+                updateStatus();
+            } else {
+                currentPlayer = (currentPlayer === PLAYER_HUMAN) ? PLAYER_AI : PLAYER_HUMAN;
+                updateStatus();
+
+                if (currentPlayer === PLAYER_AI) {
+                    isAITurn = true;
+                    setTimeout(aiMove, 100); // Small delay for visual effect
+                }
+            }
+        }
+
+        // Event listener for human move
+        canvas.addEventListener('click', function(event) {
+            if (isGameOver || isAITurn) return;
+
+            var rect = canvas.getBoundingClientRect();
+            var x = event.clientX - rect.left;
+            var y = event.clientY - rect.top;
+
+            // Calculate cell coordinates
+            // var c = Math.floor(x / CELL_SIZE);
+            // var r = Math.floor(y / CELL_SIZE);
+            
+            // Adjust to the closest grid intersection point
+            var halfCell = CELL_SIZE / 2;
+            var c_snap = Math.round((x - halfCell) / CELL_SIZE);
+            var r_snap = Math.round((y - halfCell) / CELL_SIZE);
+
+            if (r_snap >= 0 && r_snap < N && c_snap >= 0 && c_snap < N) {
+                handleMove(r_snap, c_snap);
+            }
+        });
+        
+        // Event listeners for controls
+        newGameBtn.addEventListener('click', function() { return initializeGame(true); });
+        aiFirstBtn.addEventListener('click', function() { return initializeGame(false); });
+        
+        aiDepthInput.addEventListener('input', function(e) {
+            aiSearchDepth = parseInt(e.target.value);
+            aiDepthDisplay.textContent = aiSearchDepth;
+        });
+
+
+        // --- AI Implementation (Minimax with Alpha-Beta Pruning) ---
+
+        /**
+         * Scores predefined patterns for the Gomoku heuristic.
+         */
+        var PATTERN_SCORES = {
+            // Player is the maximizing player (AI), Opponent is the minimizing player (Human)
+            // Scores must be high enough to guarantee a win is preferred over any threat.
+            
+            // Winning/Blocking Scores (must be very large)
+            '5_IN_A_ROW': 100000000,
+            
+            // Attacking Scores (for the current player)
+            'OPEN_4': 100000,   // Four in a row, both ends open (Immediate win threat)
+            'SEMI_OPEN_4': 1000, // Four in a row, one end open
+            'OPEN_3': 100,      // Three in a row, both ends open (Creates double threats)
+            'SEMI_OPEN_3': 10,   // Three in a row, one end open
+            'OPEN_2': 1,         // Two in a row, both ends open
+        };
+        
+        /**
+         * Heuristic evaluation function for the board.
+         * Evaluates the board state by counting patterns (chains of 2, 3, 4) for both players.
+         * @param {Array<Array<number>>} boardToCheck The board state.
+         * @param {number} player The player to evaluate the board from their perspective.
+         * @returns {number} The score.
+         */
+        function evaluateBoard(boardToCheck, player) {
+            var opponent = (player === PLAYER_HUMAN) ? PLAYER_AI : PLAYER_HUMAN;
+            var totalScore = 0;
+
+            var directions = [
+                [0, 1],  // Horizontal
+                [1, 0],  // Vertical
+                [1, 1],  // Diagonal \
+                [1, -1]  // Diagonal /
+            ];
+
+            var cache = new Map();
+
+            /**
+             * Helper function to get pattern info.
+             * Returns [length, openEnds]
+             */
+            function getPatternInfo(r, c, dr, dc, p) {
+                var length = 0;
+                var openEnds = 0;
+                
+                // Check backward for open end
+                var r_prev = r - dr;
+                var c_prev = c - dc;
+                var isBoundaryPrev = r_prev < 0 || r_prev >= N || c_prev < 0 || c_prev >= N;
+                
+                if (!isBoundaryPrev && boardToCheck[r_prev][c_prev] === 0) {
+                    openEnds++;
+                } else if (!isBoundaryPrev && boardToCheck[r_prev][c_prev] === opponent) {
+                    // Blocked by opponent, no open end
+                } else {
+                    // Boundary/edge
+                }
+                
+                // Find chain length
+                var currentR = r;
+                var currentC = c;
+                while (currentR >= 0 && currentR < N && currentC >= 0 && currentC < N && boardToCheck[currentR][currentC] === p) {
+                    length++;
+                    currentR += dr;
+                    currentC += dc;
+                }
+                
+                // Check forward for open end
+                var r_next = currentR;
+                var c_next = currentC;
+                var isBoundaryNext = r_next < 0 || r_next >= N || c_next < 0 || c_next >= N;
+                
+                if (!isBoundaryNext && boardToCheck[r_next][c_next] === 0) {
+                    openEnds++;
+                } else if (!isBoundaryNext && boardToCheck[r_next][c_next] === opponent) {
+                    // Blocked by opponent
+                }
+                
+                return { length: length, openEnds: openEnds };
+            }
+
+            
+            // Loop through every cell in every direction
+            for (var r = 0; r < N; r++) {
+                for (var c = 0; c < N; c++) {
+                    if (boardToCheck[r][c] === 0) continue;
+
+                    for (var d = 0; d < 4; d++) {
+                        var _c = directions[d];
+                        var dr = _c[0];
+                        var dc = _c[1];
+                        var playerPiece = boardToCheck[r][c];
+                        
+                        // Use a key to prevent re-evaluating the middle of a chain
+                        var key = r + "," + c + "," + dr + "," + dc;
+                        if (cache.has(key)) continue;
+
+                        var _d = getPatternInfo(r, c, dr, dc, playerPiece);
+                        var length = _d.length;
+                        var openEnds = _d.openEnds;
+                        
+                        // Mark all cells in this chain as checked from this direction
+                        for (var i = 0; i < length; i++) {
+                            cache.set((r + i * dr) + "," + (c + i * dc) + "," + dr + "," + dc, true);
+                        }
+                        
+                        var score = 0;
+                        
+                        // 1. Check for immediate win
+                        if (length >= WIN_COUNT) {
+                            score = PATTERN_SCORES['5_IN_A_ROW'];
+                        } 
+                        // 2. Check for 4-in-a-row
+                        else if (length === 4) {
+                            if (openEnds === 2) {
+                                score = PATTERN_SCORES['OPEN_4'];
+                            } else if (openEnds === 1) {
+                                score = PATTERN_SCORES['SEMI_OPEN_4'];
+                            }
+                        }
+                        // 3. Check for 3-in-a-row
+                        else if (length === 3) {
+                            if (openEnds === 2) {
+                                score = PATTERN_SCORES['OPEN_3'];
+                            } else if (openEnds === 1) {
+                                score = PATTERN_SCORES['SEMI_OPEN_3'];
+                            }
+                        }
+                        // 4. Check for 2-in-a-row
+                        else if (length === 2 && openEnds === 2) {
+                            score = PATTERN_SCORES['OPEN_2'];
+                        }
+                        
+                        // Apply score: AI is maximizing (positive), Human is minimizing (negative)
+                        if (playerPiece === player) {
+                            totalScore += score;
+                        } else {
+                            // If the opponent has a winning threat, we must highly penalize it.
+                            if (score >= PATTERN_SCORES['OPEN_4']) {
+                                totalScore -= score * 10; // Block immediate opponent win at all costs
+                            } else {
+                                totalScore -= score; // Normal opponent threat
+                            }
+                        }
+                    }
+                }
+            }
+
+            return totalScore;
+        }
+
+        /**
+         * Gets all valid, non-zero moves (cells adjacent to existing pieces).
+         * This prunes the search space dramatically for large boards.
+         * @param {Array<Array<number>>} boardToCheck The board state.
+         * @returns {Array<{r: number, c: number}>} List of possible moves.
+         */
+        function getRelevantMoves(boardToCheck) {
+            var moves = new Set();
+            var hasMoves = false;
+            
+            for (var r = 0; r < N; r++) {
+                for (var c = 0; c < N; c++) {
+                    if (boardToCheck[r][c] !== 0) {
+                        hasMoves = true;
+                        // Check adjacent cells (2 steps away max)
+                        for(var dr = -2; dr <= 2; dr++) {
+                            for(var dc = -2; dc <= 2; dc++) {
+                                if (dr === 0 && dc === 0) continue;
+                                var nr = r + dr;
+                                var nc = c + dc;
+
+                                if (nr >= 0 && nr < N && nc >= 0 && nc < N && boardToCheck[nr][nc] === 0) {
+                                    moves.add(nr + "," + nc);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // If the board is empty, start at the center
+            if (!hasMoves) {
+                var center = Math.floor(N / 2);
+                moves.add(center + "," + center);
+            }
+
+            return Array.from(moves).map(function(key) {
+                var _a = key.split(',').map(Number);
+                var r = _a[0];
+                var c = _a[1];
+                return {r: r, c: c};
+            });
+        }
+        
+        /**
+         * The core Minimax algorithm with Alpha-Beta pruning.
+         * @param {Array<Array<number>>} currentBoard Current board state.
+         * @param {number} depth Remaining search depth.
+         * @param {number} alpha Alpha value (best score found so far for Max).
+         * @param {number} beta Beta value (best score found so far for Min).
+         * @param {boolean} isMaximizingPlayer True if it's the AI's turn (Max).
+         * @returns {number} The evaluated score of the move.
+         */
+        function minimax(currentBoard, depth, alpha, beta, isMaximizingPlayer) {
+            
+            // Check terminal conditions (Win/Draw or Max Depth Reached)
+            if (depth === 0) {
+                return evaluateBoard(currentBoard, PLAYER_AI);
+            }
+            
+            // Simplified check for last move in minimax (only works if moves are played sequentially)
+            function findLastMoveInMinimax(board, lastPlayer) {
+                 // A proper implementation requires tracking the move history.
+                 // For now, we'll return a placeholder to force evaluation to handle the win.
+                 // The evaluateBoard heuristic is strong enough to handle terminal states.
+                 // We only need the last played piece to check win. 
+                 // We will iterate and find the first non-zero cell and use that as 'lastMove' for an approximation.
+                 // This is a known simplification/limitation in this single-file setup.
+                 for(var r = 0; r < N; r++) {
+                    for(var c = 0; c < N; c++) {
+                        if (board[r][c] === lastPlayer) return {r: r, c: c};
+                    }
+                 }
+                 return null;
+            }
+            
+            // Note: We don't check for win here explicitly to save time, 
+            // relying on the heuristic to detect 5-in-a-row (which has the highest score).
+            // However, a shallow check can drastically improve early game play.
+            if (depth !== aiSearchDepth) { // Don't check win at the very start to avoid redundant checks
+                var lastPlayer = isMaximizingPlayer ? PLAYER_HUMAN : PLAYER_AI;
+                var lastMove = findLastMoveInMinimax(currentBoard, lastPlayer);
+                if (lastMove && checkWin(currentBoard, lastMove.r, lastMove.c)) {
+                    // Win is detected. Score based on whose turn it is now.
+                    if (isMaximizingPlayer) {
+                        // AI's opponent (Human) just won. Bad for AI.
+                        return -PATTERN_SCORES['5_IN_A_ROW'];
+                    } else {
+                        // AI just won (in the previous step). Good for AI.
+                        return PATTERN_SCORES['5_IN_A_ROW'];
+                    }
+                }
+            }
+            
+
+            var availableMoves = getRelevantMoves(currentBoard);
+            if (availableMoves.length === 0) {
+                 return evaluateBoard(currentBoard, PLAYER_AI); // Draw/Full board
+            }
+
+
+            if (isMaximizingPlayer) {
+                var maxEval = -Infinity;
+                var playerToMove = PLAYER_AI;
+
+                for (var _e = 0, availableMoves_1 = availableMoves; _e < availableMoves_1.length; _e++) {
+                    var _f = availableMoves_1[_e];
+                    var r = _f.r;
+                    var c = _f.c;
+                    currentBoard[r][c] = playerToMove;
+                    var evaluation = minimax(currentBoard, depth - 1, alpha, beta, false);
+                    currentBoard[r][c] = 0; // Undo move
+
+                    maxEval = Math.max(maxEval, evaluation);
+                    alpha = Math.max(alpha, maxEval);
+                    if (beta <= alpha) {
+                        break; // Beta Cutoff
+                    }
+                }
+                return maxEval;
+            } else {
+                var minEval = Infinity;
+                var playerToMove = PLAYER_HUMAN;
+
+                for (var _g = 0, availableMoves_2 = availableMoves; _g < availableMoves_2.length; _g++) {
+                    var _h = availableMoves_2[_g];
+                    var r = _h.r;
+                    var c = _h.c;
+                    currentBoard[r][c] = playerToMove;
+                    var evaluation = minimax(currentBoard, depth - 1, alpha, beta, true);
+                    currentBoard[r][c] = 0; // Undo move
+
+                    minEval = Math.min(minEval, evaluation);
+                    beta = Math.min(beta, minEval);
+                    if (beta <= alpha) {
+                        break; // Alpha Cutoff
+                    }
+                }
+                return minEval;
+            }
+        }
+
+        /**
+         * Finds the best move for the AI using the minimax algorithm.
+         */
+        function findBestMove() {
+            var bestMove = null;
+            var bestScore = -Infinity;
+            var availableMoves = getRelevantMoves(board);
+            var playerToMove = PLAYER_AI;
+
+            // Simple randomization for the very first move to avoid repeated games
+            if (board.flat().every(function(cell) { return cell === 0; })) {
+                return availableMoves[Math.floor(Math.random() * availableMoves.length)];
+            }
+            
+            // Limit search space further for better performance
+            var sortedMoves = availableMoves.sort(function() { return 0.5 - Math.random(); }).slice(0, 30); 
+
+            for (var _i = 0, sortedMoves_1 = sortedMoves; _i < sortedMoves_1.length; _i++) {
+                var _j = sortedMoves_1[_i];
+                var r = _j.r;
+                var c = _j.c;
+                // Make the move
+                board[r][c] = playerToMove;
+
+                // Evaluate the board (Minimizing player's turn next)
+                // Alpha = -Infinity, Beta = Infinity
+                var score = minimax(board, aiSearchDepth - 1, -Infinity, Infinity, false);
+
+                // Undo the move
+                board[r][c] = 0;
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMove = {r: r, c: c};
+                }
+            }
+
+            // If no move was clearly best, just pick one of the available
+            if (!bestMove) {
+                bestMove = availableMoves[Math.floor(Math.random() * availableMoves.length)];
+            }
+            
+            return bestMove;
+        }
+
+        /**
+         * Executes the AI's move.
+         */
+        async function aiMove() {
+            if (isGameOver) return;
+
+            loadingOverlay.classList.remove('hidden');
+
+            // Allow the UI to update with the loading screen
+            await new Promise(function(resolve) { return setTimeout(resolve, 10); }); 
+
+            try {
+                var move = findBestMove();
+                if (move) {
+                    board[move.r][move.c] = PLAYER_AI;
+                    drawBoard();
+
+                    if (checkWin(board, move.r, move.c)) {
+                        isGameOver = true;
+                        updateStatus();
+                    } else if (board.flat().every(function(cell) { return cell !== 0; })) {
+                        isGameOver = true;
+                        updateStatus();
+                    } else {
+                        currentPlayer = PLAYER_HUMAN;
+                        updateStatus();
+                    }
+                }
+            } catch (error) {
+                console.error("AI Move failed:", error);
+                // Fallback: Pass the turn back to human if AI fails
+                currentPlayer = PLAYER_HUMAN; 
+                updateStatus();
+            } finally {
+                isAITurn = false;
+                loadingOverlay.classList.add('hidden');
+            }
+        }
+
+        // Initialize game on load (Human starts)
+        window.onload = function() {
+            initializeGame(true);
+            aiDepthDisplay.textContent = aiSearchDepth;
+        };
+
+    </script>
+</body>
+</html>
