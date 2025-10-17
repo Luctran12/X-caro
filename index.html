@@ -10,11 +10,11 @@
 </head>
 <body class="p-4 md:p-8">
 
-    <div id="app" class="flex flex-col lg:flex-row bg-white p-6 rounded-2xl shadow-2xl max-w-7xl w-full">
-        
+    <div id="app" class="flex flex-col lg:flex-row bg-white p-6 rounded-2xl shadow-2xl max-w-7xl w-full mx-auto">
+
         <div class="relative flex justify-center items-center p-2 lg:p-4 rounded-xl mb-6 lg:mb-0 lg:mr-8">
             <canvas id="gameCanvas" width="700" height="700" class="select-none"></canvas>
-            
+
             <!-- Loading Overlay for AI thinking -->
             <div id="loadingOverlay" class="loading-overlay hidden">
                 <div class="flex flex-col items-center p-6 bg-gray-800 bg-opacity-90 rounded-xl shadow-lg">
@@ -24,38 +24,49 @@
             </div>
         </div>
 
-        <div class="flex-shrink-0 w-full lg:w-80 p-4 space-y-6">
-            <h1 class="text-3xl font-bold text-center text-gray-800 border-b-2 pb-3 border-emerald-500">CỜ CARO (GOMOKU) AI</h1>
-            
-            <div id="status" class="bg-indigo-100 border-l-4 border-indigo-500 text-indigo-700 p-4 rounded-lg shadow-md">
-                <p class="text-lg font-semibold mb-1">Trạng thái: <span id="gameStatus" class="font-bold text-indigo-900">Người chơi X bắt đầu</span></p>
-                <p class="text-sm">Kích thước: 20x20 | Thắng: 5 nước liên tiếp</p>
-                <p class="text-sm">Độ sâu AI (Depth): <span id="aiDepthDisplay" class="font-medium text-indigo-700">3</span></p>
-            </div>
+        <div class="flex flex-col lg:flex-row lg:w-160 space-y-6 lg:space-y-0 lg:space-x-6">
+            <div class="flex-shrink-0 p-4 space-y-6 lg:w-1/2">
+                <h1 class="text-3xl font-bold text-center text-gray-800 border-b-2 pb-3 border-emerald-500">CỜ CARO (GOMOKU) AI</h1>
 
-            <div class="space-y-4">
-                <button id="newGameBtn" class="w-full py-3 px-4 bg-emerald-500 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-600 transition duration-200 transform hover:scale-105">
-                    Chơi Ván Mới (Bạn đi trước)
-                </button>
-                 <button id="aiFirstBtn" class="w-full py-3 px-4 bg-yellow-500 text-gray-800 font-bold rounded-xl shadow-lg hover:bg-yellow-600 transition duration-200 transform hover:scale-105">
-                    Máy tính đi trước
-                </button>
-            </div>
-            
-            <!-- AI Settings -->
-            <div class="bg-gray-50 p-4 rounded-xl shadow-inner space-y-3">
-                <h2 class="text-xl font-semibold text-gray-700">Cài đặt AI</h2>
-                <div>
-                    <label for="aiDepth" class="block text-sm font-medium text-gray-600 mb-1">Độ sâu tìm kiếm (1-5)</label>
-                    <input type="range" id="aiDepth" min="1" max="5" value="3" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-lg">
+                <div id="status" class="bg-indigo-100 border-l-4 border-indigo-500 text-indigo-700 p-4 rounded-lg shadow-md">
+                    <p class="text-lg font-semibold mb-1">Trạng thái: <span id="gameStatus" class="font-bold text-indigo-900">Người chơi X bắt đầu</span></p>
+                    <p class="text-sm">Kích thước: 20x20 | Thắng: 5 nước liên tiếp</p>
+                    <p class="text-sm">Độ sâu AI (Depth): <span id="aiDepthDisplay" class="font-medium text-indigo-700">3</span></p>
                 </div>
-                <p class="text-xs text-gray-500 italic">Độ sâu càng lớn, AI càng mạnh nhưng thời gian tính toán càng lâu.</p>
+
+                <div class="space-y-4">
+                    <button id="newGameBtn" class="w-full py-3 px-4 bg-emerald-500 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-600 transition duration-200 transform hover:scale-105">
+                        Chơi Ván Mới (Bạn đi trước)
+                    </button>
+                     <button id="aiFirstBtn" class="w-full py-3 px-4 bg-yellow-500 text-gray-800 font-bold rounded-xl shadow-lg hover:bg-yellow-600 transition duration-200 transform hover:scale-105">
+                        Máy tính đi trước
+                    </button>
+                </div>
+
+                <!-- AI Settings -->
+                <div class="bg-gray-50 p-4 rounded-xl shadow-inner space-y-3">
+                    <h2 class="text-xl font-semibold text-gray-700">Cài đặt AI</h2>
+                    <div>
+                        <label for="aiDepth" class="block text-sm font-medium text-gray-600 mb-1">Độ sâu tìm kiếm (1-5)</label>
+                        <input type="range" id="aiDepth" min="1" max="5" value="3" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-lg">
+                    </div>
+                    <p class="text-xs text-gray-500 italic">Độ sâu càng lớn, AI càng mạnh nhưng thời gian tính toán càng lâu.</p>
+                </div>
+
+                <div class="text-center pt-4 border-t border-gray-200">
+                    <p class="text-sm text-gray-500">Người chơi X là bạn | Máy tính O là AI</p>
+                </div>
             </div>
 
-            <div class="text-center pt-4 border-t border-gray-200">
-                <p class="text-sm text-gray-500">Người chơi X là bạn | Máy tính O là AI</p>
+            <!-- AI Debug Panel -->
+            <div class="flex-1 p-4 lg:w-1/2">
+                <div class="bg-gray-50 p-4 rounded-xl shadow-inner flex flex-col h-96">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-3">AI Debug Panel</h2>
+                    <div id="aiDebug" class="text-xs text-gray-600 font-mono bg-white p-2 rounded border flex-1 overflow-y-auto overflow-x-hidden break-all max-w-full">
+                        AI chưa suy nghĩ...
+                    </div>
+                </div>
             </div>
-
         </div>
     </div>
 
@@ -63,8 +74,25 @@
         // Global Constants and Setup
         var N = 20; // Board size N x N
         var WIN_COUNT = 5; // Number of pieces to win
-        var CANVAS_SIZE = 700;
-        var CELL_SIZE = CANVAS_SIZE / N;
+        var CANVAS_SIZE;
+        var CELL_SIZE;
+
+        /**
+         * Updates canvas size based on screen width for responsiveness.
+         */
+        function updateCanvasSize() {
+            var screenWidth = window.innerWidth;
+            if (screenWidth < 768) {
+                CANVAS_SIZE = 400; // Mobile
+            } else if (screenWidth < 1024) {
+                CANVAS_SIZE = 500; // Tablet
+            } else {
+                CANVAS_SIZE = 700; // Desktop
+            }
+            CELL_SIZE = CANVAS_SIZE / N;
+            canvas.width = CANVAS_SIZE;
+            canvas.height = CANVAS_SIZE;
+        }
 
         var PLAYER_HUMAN = 1; // X
         var PLAYER_AI = 2;    // O
@@ -84,6 +112,7 @@
         var loadingOverlay = document.getElementById('loadingOverlay');
         var aiDepthInput = document.getElementById('aiDepth');
         var aiDepthDisplay = document.getElementById('aiDepthDisplay');
+        var aiDebugEl = document.getElementById('aiDebug');
 
 
         // --- FIREBASE AND AUTH SETUP (Standard for Canvas Environment) ---
@@ -758,13 +787,19 @@
             var availableMoves = getRelevantMoves(board);
             var playerToMove = PLAYER_AI;
 
+            // Clear previous debug info
+            aiDebugEl.innerHTML = 'AI đang suy nghĩ...<br>';
+
             // Simple randomization for the very first move to avoid repeated games
             if (board.flat().every(function(cell) { return cell === 0; })) {
-                return availableMoves[Math.floor(Math.random() * availableMoves.length)];
+                var randomMove = availableMoves[Math.floor(Math.random() * availableMoves.length)];
+                aiDebugEl.innerHTML += 'Nước đầu tiên ngẫu nhiên: (' + randomMove.r + ',' + randomMove.c + ')<br>';
+                return randomMove;
             }
-            
+
             // Limit search space further for better performance
-            var sortedMoves = availableMoves.sort(function() { return 0.5 - Math.random(); }).slice(0, 30); 
+            var sortedMoves = availableMoves.sort(function() { return 0.5 - Math.random(); }).slice(0, 30);
+            aiDebugEl.innerHTML += 'Số nước đi có thể: ' + availableMoves.length + ', Đánh giá: ' + sortedMoves.length + '<br>';
 
             for (var _i = 0, sortedMoves_1 = sortedMoves; _i < sortedMoves_1.length; _i++) {
                 var _j = sortedMoves_1[_i];
@@ -780,6 +815,8 @@
                 // Undo the move
                 board[r][c] = 0;
 
+                aiDebugEl.innerHTML += 'Nước (' + r + ',' + c + '): ' + score + '<br>';
+
                 if (score > bestScore) {
                     bestScore = score;
                     bestMove = {r: r, c: c};
@@ -789,8 +826,10 @@
             // If no move was clearly best, just pick one of the available
             if (!bestMove) {
                 bestMove = availableMoves[Math.floor(Math.random() * availableMoves.length)];
+                aiDebugEl.innerHTML += 'Không tìm thấy nước tốt nhất, chọn ngẫu nhiên.<br>';
             }
-            
+
+            aiDebugEl.innerHTML += 'Chọn nước: (' + bestMove.r + ',' + bestMove.c + ') với điểm: ' + bestScore + '<br>';
             return bestMove;
         }
 
@@ -835,9 +874,16 @@
 
         // Initialize game on load (Human starts)
         window.onload = function() {
+            updateCanvasSize();
             initializeGame(true);
             aiDepthDisplay.textContent = aiSearchDepth;
         };
+
+        // Update canvas size on window resize
+        window.addEventListener('resize', function() {
+            updateCanvasSize();
+            drawBoard(); // Redraw the board with new size
+        });
 
     </script>
 </body>
